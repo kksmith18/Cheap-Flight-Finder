@@ -95,5 +95,12 @@ python tracker.py
   the Healthchecks.io ping is meant to catch.
 - **Prices are a snapshot, not a lock.** Fares change by the minute — always
   confirm on Google Flights before booking.
+- **"Separate tickets booked together" fares aren't captured.** Google
+  Flights sometimes shows a cheaper price by stitching two independent
+  one-way tickets into a round trip. Those aren't real round-trip fares —
+  the two legs are unrelated reservations, so a delay on one leg gives you
+  no rebooking protection on the other. This tracker only reports genuine
+  single round-trip fares, so it may look slightly higher than the very
+  cheapest number shown on Google Flights.
 - **Cron is fixed to UTC**, so the "6:00 AM Eastern" schedule drifts by an
   hour across DST transitions (5:00 AM Eastern during EST/winter).
