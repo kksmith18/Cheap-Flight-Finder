@@ -76,17 +76,34 @@ with a permissions error.
 ## Managing routes
 
 ```
-python tracker.py add JFK ROC 100          # add a watch, defaults to fri_mon pattern
-python tracker.py add JFK BOS 150 fri_mon  # or specify explicitly (comma-separated for multiple)
-python tracker.py list                     # show all watches, active and inactive
-python tracker.py deactivate 2             # stop scanning a watch by its id
+python tracker.py add JFK ROC 100                        # add a watch, defaults to fri_mon pattern
+python tracker.py add JFK SFO 230 thu_sun,fri_mon,fri_sun # or specify explicitly (comma-separated for multiple)
+python tracker.py list                                   # show all watches, active and inactive
+python tracker.py deactivate 2                            # stop scanning a watch by its id
 ```
 
 `add` runs one validation search on a near-term date before saving — if the
 IATA codes don't resolve or return no flights, it's rejected instead of
-silently storing a dead route. Only `fri_mon` is implemented so far;
-`thu_mon`/`thu_sun`/`week` can be stored on a watch but are skipped during
-scans until a later build step implements them.
+silently storing a dead route.
+
+Available trip patterns (comma-separated, any combination per watch):
+
+| Pattern | Shape | Nights |
+|---|---|---|
+| `fri_mon` | Friday depart, Monday return | 3 |
+| `thu_mon` | Thursday depart, Monday return | 4 |
+| `thu_sun` | Thursday depart, Sunday return | 3 |
+| `fri_sun` | Friday depart, Sunday return | 2 |
+| `sat_sun` | Saturday depart, Sunday return | 1 |
+| `week` | Any day depart, 7 nights away | 7 |
+
+Each pattern samples one departure per week over the ~330-day window, so
+adding patterns multiplies query volume per watch (~47 queries/pattern/year).
+The scan logs a warning if a run's planned total creeps past ~500 queries.
+
+Since watches aren't unique per route, you can track the same city pair
+multiple times with different patterns and target prices — e.g. a lower bar
+for a long weekend and a separate, pricier bar for a full week trip.
 
 ## Running locally
 

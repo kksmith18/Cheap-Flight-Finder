@@ -16,16 +16,22 @@ load_dotenv()
 
 import db
 import health
-from dates import fri_mon_pairs
+from dates import fri_mon_pairs, fri_sun_pairs, sat_sun_pairs, thu_mon_pairs, thu_sun_pairs, week_pairs
 from emailer import send_deal_email
 from flights import get_cheapest_fare
 
-# Only fri_mon is implemented so far; thu_mon/thu_sun/week land in a later step.
-PATTERN_GENERATORS = {"fri_mon": fri_mon_pairs}
+PATTERN_GENERATORS = {
+    "fri_mon": fri_mon_pairs,
+    "thu_mon": thu_mon_pairs,
+    "thu_sun": thu_sun_pairs,
+    "fri_sun": fri_sun_pairs,
+    "sat_sun": sat_sun_pairs,
+    "week": week_pairs,
+}
+VALID_PATTERN_NAMES = set(PATTERN_GENERATORS)
 
-# All four pattern names are valid to store on a watch even before they're
-# implemented (see PATTERN_GENERATORS) — scan_watch skips unimplemented ones.
-VALID_PATTERN_NAMES = {"fri_mon", "thu_mon", "thu_sun", "week"}
+# Warn in logs (per build brief) if a run's query volume creeps past this.
+QUERY_VOLUME_WARN_THRESHOLD = 500
 
 # Airlines don't publish schedules for the whole date window; once results go
 # empty/failed this many weeks in a row for a pattern, assume we've walked
@@ -100,6 +106,15 @@ def run_scan() -> None:
     watches = db.get_active_watches()
     print(f"Scanning {len(watches)} active watch(es)\n")
 
+    planned_queries = sum(
+        len(PATTERN_GENERATORS[p](today)) for w in watches for p in w.trip_patterns if p in PATTERN_GENERATORS
+    )
+    if planned_queries > QUERY_VOLUME_WARN_THRESHOLD:
+        print(
+            f"WARNING: this run is planned for {planned_queries} queries, over the "
+            f"{QUERY_VOLUME_WARN_THRESHOLD} soft ceiling. Consider trimming watches/patterns.\n"
+        )
+
     all_deals = []
     total_attempted = 0
     total_failures = 0
@@ -149,10 +164,6 @@ def cmd_add(args: argparse.Namespace) -> None:
     if unknown:
         print(f"Error: unknown trip pattern(s) {unknown}. Valid patterns: {sorted(VALID_PATTERN_NAMES)}")
         sys.exit(1)
-
-    not_yet_implemented = [p for p in patterns if p not in PATTERN_GENERATORS]
-    if not_yet_implemented:
-        print(f"Note: pattern(s) {not_yet_implemented} aren't implemented yet and will be skipped until they land.")
 
     # Validate the route resolves to real flights before storing it, on a
     # near-term date pair so we don't wait weeks out for the check.
