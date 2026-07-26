@@ -73,10 +73,20 @@ cache needed). Under **Settings → Actions → General → Workflow permissions
 select **Read and write permissions**, or the commit/push step will fail
 with a permissions error.
 
-## Adding routes
+## Managing routes
 
-_(CLI for add/list/deactivate lands in a later build step — for now, watches
-are edited directly or via the seed row in `db.py`.)_
+```
+python tracker.py add JFK ROC 100          # add a watch, defaults to fri_mon pattern
+python tracker.py add JFK BOS 150 fri_mon  # or specify explicitly (comma-separated for multiple)
+python tracker.py list                     # show all watches, active and inactive
+python tracker.py deactivate 2             # stop scanning a watch by its id
+```
+
+`add` runs one validation search on a near-term date before saving — if the
+IATA codes don't resolve or return no flights, it's rejected instead of
+silently storing a dead route. Only `fri_mon` is implemented so far;
+`thu_mon`/`thu_sun`/`week` can be stored on a watch but are skipped during
+scans until a later build step implements them.
 
 ## Running locally
 

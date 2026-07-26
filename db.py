@@ -76,31 +76,46 @@ def init_db() -> None:
         )
         conn.execute("INSERT OR IGNORE INTO health_state (id, scraper_healthy) VALUES (1, 1)")
 
-        # Seed the build-brief's initial route until the add/list CLI exists (build step 6).
-        (count,) = conn.execute("SELECT COUNT(*) FROM watches").fetchone()
-        if count == 0:
-            conn.execute(
-                "INSERT INTO watches (origin, destination, target_price, trip_patterns, active, created_at) "
-                "VALUES (?, ?, ?, ?, 1, ?)",
-                ("JFK", "ROC", 100, "fri_mon", datetime.now(timezone.utc).isoformat()),
-            )
+
+def _row_to_watch(row: sqlite3.Row) -> Watch:
+    return Watch(
+        id=row["id"],
+        origin=row["origin"],
+        destination=row["destination"],
+        target_price=row["target_price"],
+        trip_patterns=row["trip_patterns"].split(","),
+        active=bool(row["active"]),
+        created_at=row["created_at"],
+    )
 
 
 def get_active_watches() -> list[Watch]:
     with contextlib.closing(_connect()) as conn, conn:
         rows = conn.execute("SELECT * FROM watches WHERE active = 1").fetchall()
-    return [
-        Watch(
-            id=row["id"],
-            origin=row["origin"],
-            destination=row["destination"],
-            target_price=row["target_price"],
-            trip_patterns=row["trip_patterns"].split(","),
-            active=bool(row["active"]),
-            created_at=row["created_at"],
+    return [_row_to_watch(row) for row in rows]
+
+
+def list_watches() -> list[Watch]:
+    with contextlib.closing(_connect()) as conn, conn:
+        rows = conn.execute("SELECT * FROM watches ORDER BY id").fetchall()
+    return [_row_to_watch(row) for row in rows]
+
+
+def add_watch(origin: str, destination: str, target_price: int, trip_patterns: list[str]) -> int:
+    with contextlib.closing(_connect()) as conn, conn:
+        cursor = conn.execute(
+            "INSERT INTO watches (origin, destination, target_price, trip_patterns, active, created_at) "
+            "VALUES (?, ?, ?, ?, 1, ?)",
+            (origin, destination, target_price, ",".join(trip_patterns), datetime.now(timezone.utc).isoformat()),
         )
-        for row in rows
-    ]
+    return cursor.lastrowid
+
+
+def deactivate_watch(watch_id: int) -> bool:
+    """Returns True if a watch with that id existed and was deactivated."""
+    with contextlib.closing(_connect()) as conn, conn:
+        cursor = conn.execute("UPDATE watches SET active = 0 WHERE id = ?", (watch_id,))
+    return cursor.rowcount > 0
 
 
 def get_last_alerted_price(watch_id: int, depart_date: str, return_date: str) -> int | None:
